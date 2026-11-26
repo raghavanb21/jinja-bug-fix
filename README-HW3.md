@@ -168,7 +168,7 @@ Run the complete regression suite:
 | --- | --- |
 | Original baseline from `evidence/01_baseline.txt` | `909 passed in 0.69s` |
 | Original issue reproduction before the patch | Failed: expected `{'control'}`, got `{'control', 'output'}` |
-| Patched original reproduction test | `1 passed in 0.01s` |
+| Patched original reproduction test | `3 passed in 0.01s` |
 | Patched `TestMeta` suite | `19 passed in 0.02s` |
 | Existing `tests/test_regression.py` suite | `54 passed in 0.04s` |
 | Final complete suite | `925 passed in 0.68s` |
