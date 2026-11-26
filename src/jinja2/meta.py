@@ -17,6 +17,7 @@ class TrackingCodeGenerator(CodeGenerator):
 
     def __init__(self, environment: "Environment") -> None:
         super().__init__(environment, "<introspection>", "<introspection>")
+        self.frames: t.List[Frame] = []
         self.undeclared_identifiers: t.Set[str] = set()
 
     def write(self, x: str) -> None:
@@ -25,10 +26,20 @@ class TrackingCodeGenerator(CodeGenerator):
     def enter_frame(self, frame: Frame) -> None:
         """Remember all undeclared identifiers."""
         super().enter_frame(frame)
+        self.frames.append(frame)
 
-        for _, (action, param) in frame.symbols.loads.items():
-            if action == "resolve" and param not in self.environment.globals:
-                self.undeclared_identifiers.add(param)
+    def pull_undeclared(self) -> None:
+        for frame in self.frames:
+            for _, (action, param) in frame.symbols.loads.items():
+                if (
+                    action == "resolve"
+                    and param not in self.environment.globals
+                    and (
+                        param in frame.symbols.resolved_names
+                        or param not in frame.symbols.definitely_stored
+                    )
+                ):
+                    self.undeclared_identifiers.add(param)
 
 
 def find_undeclared_variables(ast: nodes.Template) -> t.Set[str]:
@@ -52,6 +63,7 @@ def find_undeclared_variables(ast: nodes.Template) -> t.Set[str]:
     """
     codegen = TrackingCodeGenerator(ast.environment)  # type: ignore
     codegen.visit(ast)
+    codegen.pull_undeclared()
     return codegen.undeclared_identifiers
 
 

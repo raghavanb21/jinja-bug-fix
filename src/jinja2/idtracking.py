@@ -45,6 +45,8 @@ class Symbols:
         self.refs: t.Dict[str, str] = {}
         self.loads: t.Dict[str, t.Any] = {}
         self.stores: t.Set[str] = set()
+        self.definitely_stored: t.Set[str] = set()
+        self.resolved_names: t.Set[str] = set()
 
     def analyze_node(self, node: nodes.Node, **kwargs: t.Any) -> None:
         visitor = RootVisitor(self)
@@ -92,10 +94,13 @@ class Symbols:
         rv.refs = self.refs.copy()
         rv.loads = self.loads.copy()
         rv.stores = self.stores.copy()
+        rv.definitely_stored = self.definitely_stored.copy()
+        rv.resolved_names = self.resolved_names.copy()
         return rv
 
     def store(self, name: str) -> None:
         self.stores.add(name)
+        self.definitely_stored.add(name)
 
         # If we have not see the name referenced yet, we need to figure
         # out what to set it to.
@@ -119,6 +124,15 @@ class Symbols:
     def load(self, name: str) -> None:
         if self.find_ref(name) is None:
             self._define_ref(name, load=(VAR_LOAD_RESOLVE, name))
+            self.resolved_names.add(name)
+        elif name not in self.refs and self.parent is not None:
+            self.parent.mark_resolved(name)
+
+    def mark_resolved(self, name: str) -> None:
+        if name in self.refs:
+            self.resolved_names.add(name)
+        elif self.parent is not None:
+            self.parent.mark_resolved(name)
 
     def branch_update(self, branch_symbols: t.Sequence["Symbols"]) -> None:
         stores: t.Set[str] = set()
@@ -132,6 +146,11 @@ class Symbols:
             self.refs.update(sym.refs)
             self.loads.update(sym.loads)
             self.stores.update(sym.stores)
+            self.resolved_names.update(sym.resolved_names)
+
+        self.definitely_stored.update(
+            set.intersection(*(sym.definitely_stored for sym in branch_symbols))
+        )
 
         for name in stores:
             target = self.find_ref(name)
@@ -263,9 +282,20 @@ class FrameSymbolVisitor(NodeVisitor):
             return rv
 
         body_symbols = inner_visit(node.body)
-        elif_symbols = inner_visit(node.elif_)
         else_symbols = inner_visit(node.else_ or ())
-        self.symbols.branch_update([body_symbols, elif_symbols, else_symbols])
+        elif_symbols: t.List[Symbols] = []
+
+        for elif_ in node.elif_:
+            self.symbols = rv = original_symbols.copy()
+            self.visit(elif_.test, **kwargs)
+
+            for subnode in elif_.body:
+                self.visit(subnode, **kwargs)
+
+            self.symbols = original_symbols
+            elif_symbols.append(rv)
+
+        self.symbols.branch_update([body_symbols, *elif_symbols, else_symbols])
 
     def visit_Macro(self, node: nodes.Macro, **kwargs: t.Any) -> None:
         self.symbols.store(node.name)

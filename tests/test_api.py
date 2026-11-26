@@ -179,6 +179,150 @@ class TestMeta:
         x = meta.find_undeclared_variables(ast)
         assert x == {"foo"}
 
+    def test_find_undeclared_variables_if_all_branches_assign(self, env):
+        ast = env.parse(
+            "{% if control == 'something' %}"
+            "{% set output = 1 %}"
+            "{% elif control == 'something else' %}"
+            "{% set output = 2 %}"
+            "{% else %}"
+            "{% set output = 3 %}"
+            "{% endif %}"
+            "{{ output }}"
+        )
+        assert meta.find_undeclared_variables(ast) == {"control"}
+
+    def test_find_undeclared_variables_if_else_all_branches_assign(self, env):
+        ast = env.parse(
+            "{% if control %}"
+            "{% set output = 1 %}"
+            "{% else %}"
+            "{% set output = 2 %}"
+            "{% endif %}"
+            "{{ output }}"
+        )
+        assert meta.find_undeclared_variables(ast) == {"control"}
+
+    def test_find_undeclared_variables_before_all_branch_assignments(self, env):
+        ast = env.parse(
+            "{% if control %}"
+            "{{ output }}"
+            "{% set output = 1 %}"
+            "{% else %}"
+            "{% set output = 2 %}"
+            "{% endif %}"
+        )
+        assert meta.find_undeclared_variables(ast) == {"control", "output"}
+
+    def test_find_undeclared_variables_macro_before_all_branch_assignments(
+        self, env
+    ):
+        ast = env.parse(
+            "{% macro render() %}{{ output }}{% endmacro %}"
+            "{{ render() }}"
+            "{% if control %}{% set output = 1 %}"
+            "{% else %}{% set output = 2 %}{% endif %}"
+        )
+        assert meta.find_undeclared_variables(ast) == {"control", "output"}
+
+    def test_find_undeclared_variables_if_branch_does_not_assign(self, env):
+        ast = env.parse(
+            "{% if control %}"
+            "{% set output = 1 %}"
+            "{% endif %}"
+            "{{ output }}"
+        )
+        assert meta.find_undeclared_variables(ast) == {"control", "output"}
+
+    def test_find_undeclared_variables_elif_branch_does_not_assign(self, env):
+        ast = env.parse(
+            "{% if first %}"
+            "{% set output = 1 %}"
+            "{% elif second %}"
+            "{% else %}"
+            "{% set output = 2 %}"
+            "{% endif %}"
+            "{{ output }}"
+        )
+        assert meta.find_undeclared_variables(ast) == {"first", "second", "output"}
+
+    @pytest.mark.parametrize(
+        ("source", "expected"),
+        [
+            pytest.param(
+                "{% if control %}{% set output = 1 %}"
+                "{% elif alternative %}{% set output = 2 %}"
+                "{% else %}{% set output = 3 %}{% endif %}{{ output }}",
+                {"control", "alternative"},
+                id="if-elif-else-all-branches-assign",
+            ),
+            pytest.param(
+                "{% if control %}{% set output = 1 %}"
+                "{% elif alternative %}{% set output = 2 %}"
+                "{% else %}{% endif %}{{ output }}",
+                {"control", "alternative", "output"},
+                id="if-elif-else-branch-does-not-assign",
+            ),
+            pytest.param(
+                "{% if outer %}{% if inner %}{% set output = 1 %}"
+                "{% else %}{% set output = 2 %}{% endif %}"
+                "{% else %}{% set output = 3 %}{% endif %}{{ output }}",
+                {"outer", "inner"},
+                id="nested-conditionals-all-branches-assign",
+            ),
+            pytest.param(
+                "{% if outer %}{% if inner %}{% set output = 1 %}"
+                "{% else %}{% set output = 2 %}{% endif %}"
+                "{% else %}{% endif %}{{ output }}",
+                {"outer", "inner", "output"},
+                id="nested-conditionals-branch-does-not-assign",
+            ),
+            pytest.param(
+                "{% set output = 0 %}{% if control %}{% set output = 1 %}"
+                "{% else %}{% set output = 2 %}{% endif %}{{ output }}",
+                {"control"},
+                id="assigned-before-conditional",
+            ),
+            pytest.param(
+                "{% if control %}{% set first = 1 %}{% set second = 2 %}"
+                "{% else %}{% set first = 3 %}{% set second = 4 %}{% endif %}"
+                "{{ first }}{{ second }}",
+                {"control"},
+                id="multiple-variables-all-branches-assign",
+            ),
+            pytest.param(
+                "{% if control %}{% set output = source %}"
+                "{% else %}{% set output = fallback %}{% endif %}{{ output }}",
+                {"control", "source", "fallback"},
+                id="external-variables-on-assignment-right-hand-sides",
+            ),
+            pytest.param(
+                "{% if control %}{% set output = 1 %}"
+                "{% else %}{% set output = 2 %}{% endif %}"
+                "{{ output }}{{ unrelated }}",
+                {"control", "unrelated"},
+                id="unrelated-undeclared-variable",
+            ),
+            pytest.param(
+                "{% macro render(argument) %}{% if control %}"
+                "{% set output = argument %}{% else %}{% set output = fallback %}"
+                "{% endif %}{{ output }}{% endmacro %}",
+                {"control", "fallback"},
+                id="macro-parameter-and-conditional-local",
+            ),
+            pytest.param(
+                "{% set output = 0 %}{% for item in items %}"
+                "{% set output = item %}{% endfor %}{{ output }}",
+                {"items"},
+                id="loop-assignment-does-not-hide-outer-local",
+            ),
+        ],
+    )
+    def test_find_undeclared_variables_conditional_scopes(
+        self, env, source, expected
+    ):
+        assert meta.find_undeclared_variables(env.parse(source)) == expected
+
     def test_find_refererenced_templates(self, env):
         ast = env.parse('{% extends "layout.html" %}{% include helper %}')
         i = meta.find_referenced_templates(ast)

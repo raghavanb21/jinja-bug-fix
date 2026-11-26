@@ -1,0 +1,8 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.3.4, pluggy-1.5.0 -- /Users/raghavanb/Downloads/Raghavan/ai4se_hw3/jinja/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/raghavanb/Downloads/Raghavan/ai4se_hw3/jinja
+configfile: pyproject.toml
+collecting ... collected 912 items / 912 deselected / 0 selected
+
+=========================== 912 deselected in 0.10s ============================

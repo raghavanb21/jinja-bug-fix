@@ -1,0 +1,14 @@
+Python 3.11.15
+15206881c006c79667fe5154fe80c01c65410679
+attrs==24.3.0
+idna==3.10
+iniconfig==2.0.0
+-e file:///Users/raghavanb/Downloads/Raghavan/ai4se_hw3/jinja
+markupsafe==3.0.4
+outcome==1.3.0.post0
+packaging==24.2
+pluggy==1.5.0
+pytest==8.3.4
+sniffio==1.3.1
+sortedcontainers==2.4.0
+trio==0.27.0

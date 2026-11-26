@@ -4,6 +4,9 @@ Jinja is a fast, expressive, extensible templating engine. Special
 placeholders in the template allow writing code similar to Python
 syntax. Then the template is passed data to render the final document.
 
+> **HW3 bug-fixing report:** See [README-HW3.md](README-HW3.md) for the
+> Issue #2069 investigation, patch, validation results, and known limitation.
+
 It includes:
 
 -   Template inheritance and inclusion.
